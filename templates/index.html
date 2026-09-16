@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 { color: #075e54; text-align: center; margin-bottom: 8px; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 25px; }
+        .upload-section {
+            border: 2px dashed #128c7e;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px;
+            background-color: #f7f9fa;
+        }
+        input[type="file"] { margin-bottom: 15px; }
+        button {
+            background-color: #25d366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #128c7e; }
+        .report-card {
+            margin-top: 25px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #128c7e;
+        }
+        .error-message {
+            color: #d9534f;
+            background: #f9dedc;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+        canvas { max-width: 300px; margin: 20px auto; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>WhatsApp Chat Tone Analyzer</h1>
+    <p class="subtitle">Upload your exported .txt or .zip chat file to analyze positive vs. negative chat behavior per contact.</p>
+
+    <div class="upload-section">
+        <input type="file" id="chatFile" accept=".txt,.zip">
+        <br>
+        <button onclick="uploadFile()">Analyze Chat Log</button>
+    </div>
+
+    <div id="errorBox" class="error-message"></div>
+    <div id="results"></div>
+</div>
+
+<script>
+async function uploadFile() {
+    const fileInput = document.getElementById('chatFile');
+    const resultsDiv = document.getElementById('results');
+    const errorBox = document.getElementById('errorBox');
+    
+    resultsDiv.innerHTML = '';
+    errorBox.style.display = 'none';
+
+    if (!fileInput.files[0]) {
+        errorBox.innerText = "Please select a .txt or .zip file first.";
+        errorBox.style.display = 'block';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
+        const response = await fetch('/analyze', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            errorBox.innerText = data.error || "An error occurred while parsing the file.";
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        if (Object.keys(data).length === 0) {
+            errorBox.innerText = "No messages could be parsed. Check that the chat export format matches standard WhatsApp outputs.";
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        resultsDiv.innerHTML = '<h2>Analysis Report</h2>';
+
+        let chartIndex = 0;
+        for (const [contact, stats] of Object.entries(data)) {
+            const posPct = Math.round((stats.positive / stats.total) * 100) || 0;
+            const negPct = Math.round((stats.negative / stats.total) * 100) || 0;
+            const neuPct = Math.round((stats.neutral / stats.total) * 100) || 0;
+
+            const card = document.createElement('div');
+            card.className = 'report-card';
+            card.innerHTML = `
+                <h3>👤 Contact: ${contact}</h3>
+                <p>💬 Total Messages: <strong>${stats.total}</strong></p>
+                <p>📸 Media Shared: <strong>${stats.media}</strong></p>
+                <p>😄 Positive Chat: <strong style="color: green;">${stats.positive} (${posPct}%)</strong></p>
+                <p>🤬 Negative Chat: <strong style="color: red;">${stats.negative} (${negPct}%)</strong></p>
+                <p>😐 Neutral Chat: <strong>${stats.neutral} (${neuPct}%)</strong></p>
+                <canvas id="chart-${chartIndex}"></canvas>
+            `;
+            resultsDiv.appendChild(card);
+
+            const ctx = document.getElementById(`chart-${chartIndex}`).getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Good Tone', 'Bad Tone', 'Neutral'],
+                    datasets: [{
+                        data: [stats.positive, stats.negative, stats.neutral],
+                        backgroundColor: ['#28a745', '#dc3545', '#6c757d']
+                    }]
+                }
+            });
+            chartIndex++;
+        }
+    } catch (err) {
+        errorBox.innerText = "Failed to communicate with the backend server.";
+        errorBox.style.display = 'block';
+    }
+}
+</script>
+
+</body>
+</html>
