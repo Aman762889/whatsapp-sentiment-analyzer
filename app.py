@@ -20,7 +20,8 @@ BAD_WORDS = {
     "ugly", "crap", "😡", "🤬", "👎", "💔", "🖕",
     "bakwas", "bekar", "kutta", "kamina", "pagal", "paagal", "gadha", 
     "chutiya", "ganda", "jhuta", "jhootha", "bewakoof", "ghatiya", 
-    "mar", "dhat", "hat", "faktu", "faltu"
+    "mar", "dhat", "hat", "faktu", "faltu", "laura", "benchod", "madarchod", 
+    "fuck", "randi", "lund", "madarchod randi ka bacha"
 }
 
 def analyze_message(message):
